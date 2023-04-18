@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <!-- 3D-D3 from https://github.com/Niekes/d3-3d and https://gist.github.com/Niekes/1c15016ae5b5f11508f92852057136b5 -->
+    <script src="https://unpkg.com/d3-3d/build/d3-3d.min.js"></script>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <!-- Stylize the boxes-->
+    <style>
+      .grid {
+        z-index: 10 !important;
+        height: 40% ! important;
+      }
+      .bound-box {
+        border: 5px solid black;
+        cursor: pointer;
+        position: absolute;
+        z-index: 0;
+        resize: both;
+        overflow: auto;
+        max-width: 1400px;
+        min-width: 300px;
+        max-height: 800px;
+        min-height: 200px;
+      }
+      .draggable-box {
+        width: 70px;
+        height: 30px;
+        border: 1px solid black;
+        text-align: center;
+        cursor: pointer;
+        position: absolute;
+        
+      }
+      .description-box {
+        width: 200px;
+        height: 200px;
+        border: 1px solid black;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        display: none;
+        overflow: scroll;
+        z-index: 2;
+      }
+      .sidebar {
+        height: 70%;
+        width: 40%;/*600px;*/
+        position: absolute;
+        z-index: 1;
+        top: 0;
+        left: 0;
+        background-color: rgb(255,255, 200);
+        overflow-x: hidden;
+        padding-top: 16px;
+      }
+
+      /*.sidebar a {
+        padding: 6px 8px 6px 16px;
+        text-decoration: none;
+        font-size: 20px;
+        color: #818181;
+        display: block;
+      }*/
+
+      /*.sidebar a:hover {
+        color: #f1f1f1;
+      }*/
+    </style>
+    Double click the cluster background to open all documents in a cluster at once.
+  </head>
+  <body>
+    <div class="sidebar">
+        Hover the points to see which documents they are.
+        Click the points to open them in the workspace.
+        <div class="grid"><svg id="view-container" viewBox="0 0 1000 500" width="1000" height="500"></svg> </div>
+    </div>
+    <!-- Svg view container with viewbox the same size as the width and height-->
+    <!-- Create the divs for each container -->
+    <div id="bound-container"></div>
+    <div id="boxes-container"></div>
+    <div id="description-container"></div>
+    
+
+
+  <script type="text/javascript"></script>
+    <script>
+
+
+      var origin = [300, 270], j = 10, scale = 20, scatter = [], yLine = [], xGrid = [], yGrid = [], zGrid = [], beta = 0, alpha = 0, key = function(d){ return d.id; }, startAngle = Math.PI/4;
+    var svg = d3.select('svg').call(d3.drag().on('drag', dragged).on('start', dragStart).on('end', dragEnd)).append('g').attr("id","grid");
+    var color  = d3.scaleOrdinal(d3.schemeAccent);
+
+    // Create a map to set each agency to a color
+    var pointColors = {"0":"darkblue", "1":"cyan", "2":"orange", "3":"yellow"};
+
+    var mx, my, mouseX, mouseY;
+
+    var grid3d = d3._3d()
+        .shape('GRID', 20)
+        .origin(origin)
+        .rotateY( startAngle)
+        .rotateX(-startAngle)
+        .scale(scale);
+
+    var grid3dy = d3._3d()
+        .shape('GRID', 20)
+        .origin(origin)
+        .rotateY( startAngle)
+        .rotateX(-startAngle)
+        .scale(scale);
+
+    var grid3dz = d3._3d()
+        .shape('GRID', 20)
+        .origin(origin)
+        .rotateY( startAngle)
+        .rotateX(-startAngle)
+        .scale(scale);
+
+    var point3d = d3._3d()
+        .x(function(d){ return d.x; })
+        .y(function(d){ return d.y; })
+        .z(function(d){ return d.z; })
+        .origin(origin)
+        .rotateY( startAngle)
+        .rotateX(-startAngle)
+        .scale(scale);
+
+    var yScale3d = d3._3d()
+        .shape('LINE_STRIP')
+        .origin(origin)
+        .rotateY( startAngle)
+        .rotateX(-startAngle)
+        .scale(scale);
+
+    function processData(data, tt){
+
+        /* ----------- GRID ----------- */
+
+        var xGrid = svg.selectAll('path.grid#X').data(data[0], key);
+
+        xGrid
+            .enter()
+            .append('path')
+            .attr('class', '_3d grid')
+            .attr('id', "X")
+            .merge(xGrid)
+            .attr('stroke', 'black')
+            .attr('stroke-width', 0.3)
+            .attr('fill', function(d){ return d.ccw ? 'lightgrey' : '#717171'; })
+            .attr('fill-opacity', 0)
+            .attr('d', grid3d.draw);
+
+        xGrid.exit().remove();
+
+        var yGrid = svg.selectAll('path.grid#Y').data(data[1], key);
+
+        yGrid
+            .enter()
+            .append('path')
+            .attr('class', '_3d grid')
+            .attr('id', "Y")
+            .merge(yGrid)
+            .attr('stroke', 'black')
+            .attr('stroke-width', 0.3)
+            .attr('fill', function(d){ return d.ccw ? 'lightgrey' : '#717171'; })
+            .attr('fill-opacity', 0)
+            .attr('d', grid3dy.draw);
+
+        yGrid.exit().remove();
+
+        var zGrid = svg.selectAll('path.grid#Z').data(data[2], key);
+
+        zGrid
+            .enter()
+            .append('path')
+            .attr('class', '_3d grid')
+            .attr('id', "Z")
+            .merge(zGrid)
+            .attr('stroke', 'black')
+            .attr('stroke-width', 0.3)
+            .attr('fill', function(d){ return d.ccw ? 'lightgrey' : '#717171'; })
+            .attr('fill-opacity', 0)
+            .attr('d', grid3dz.draw);
+
+        zGrid.exit().remove();
+
+        /* ----------- POINTS ----------- */
+
+        var points = svg.selectAll('circle').data(data[3], key);
+
+        points
+            .enter()
+            .append('circle')
+            .attr('class', '_3d')
+            .attr('opacity', 0)
+            .attr('cx', posPointX)
+            .attr('cy', posPointY)
+            .merge(points)
+            .transition().duration(tt)
+            .attr('r', 10)
+            .attr('stroke', function(d){ return d3.color(color(d.id)).darker(3); })
+            .attr('fill', function(d){ return pointColors[d.class.split("_")[1]]; })//function(d){ return color(d.id); })
+            .attr('opacity', 1)
+            .attr('cx', posPointX)
+            .attr('cy', posPointY);
+            // .on("click", function(event, d) { // Click event
+            //   // Initialize location of item clicked
+            //   clickx = parseInt(d3.select(this).style("left"), 10);
+            //   clicky = parseInt(d3.select(this).style("top"), 10);
+
+            //   // Get the description from the data and define the color to be set
+            //   var dataGrab = data[clusters[titles.indexOf(d)]][d];// 0, CIA_01
+            //   var currColor = colors[d.split("_")[0]];
+            //   var bound_id = clusters[titles.indexOf(d)];
+
+            //   // Define the description box of what was clicked
+            //   var descriptionBox = d3.selectAll("#" + d.replace(/\s/g, ''));
+            //   var descriptionBoundContainer = d3.select("#c" + d + ".draggable-box");;
+            // });
+
+
+        points.exit().remove();
+
+        /* ----------- y-Scale ----------- */
+
+        var yScale = svg.selectAll('path.yScale').data(data[4]);
+
+        yScale
+            .enter()
+            .append('path')
+            .attr('class', '_3d yScale')
+            .merge(yScale)
+            .attr('stroke', 'black')
+            .attr('stroke-width', .5)
+            .attr('d', yScale3d.draw);
+
+        yScale.exit().remove();
+
+         /* ----------- y-Scale Text ----------- */
+
+        var yText = svg.selectAll('text.yText').data(data[4][0]);
+
+        yText
+            .enter()
+            .append('text')
+            .attr('class', '_3d yText')
+            .attr('dx', '.3em')
+            .merge(yText)
+            .each(function(d){
+                d.centroid = {x: d.rotated.x, y: d.rotated.y, z: d.rotated.z};
+            })
+            .attr('x', function(d){ return d.projected.x; })
+            .attr('y', function(d){ return d.projected.y; })
+            .text(function(d){ return d[1]; });//return d[1] <= 0 ? d[1] : ''; });
+
+        yText.exit().remove();
+
+        d3.selectAll('._3d').sort(d3._3d().sort);
+    }
+
+    function posPointX(d){
+        return d.projected.x;
+    }
+
+    function posPointY(d){
+        return d.projected.y;
+    }
+
+  function init(){
+
+      d3.csv("./MDS.csv").then(function(csv) {
+        c = csv;
+
+        xGrid = [];
+        for(var z = -j; z < j; z++){
+            for(var x = -j; x < j; x++){
+                xGrid.push([x, -10, z]);
+            }
+        }
+
+        yGrid = [];
+        for(var z = -j; z < j; z++){
+            for(var x = -j; x < j; x++){
+              yGrid.push([-10, x, z]);
+            }
+        }
+
+        zGrid = [];
+        for(var z = -j; z < j; z++){
+            for(var x = -j; x < j; x++){
+              zGrid.push([x, z, -10]);
+            }
+        }
+
+        scatter = [], yLine = [];
+        var P1;
+        var P2;
+        var P3;
+        var clust;
+        var doc;
+        var cnt = 0;
+        for(var z = 0; z < c.length; z++){
+            P1 = c[z].P1;
+            P2 = c[z].P2;
+            P3 = c[z].P3;
+            clust = c[z].Cluster;
+            doc = c[z].ID;
+            scatter.push({x: P1, y: P2, z: P3, id: doc, class: "c_" + clust});
+        }
+
+        d3.range(-10, 10, 1).forEach(function(d){ yLine.push([-j, -d, -j]); });
+
+        var data = [
+            grid3d(xGrid), //planes
+            grid3dy(yGrid), //planes
+            grid3dz(zGrid), //planes
+            point3d(scatter), //points
+            yScale3d([yLine]) //grid
+        ];
+        processData(data, 1000);
+
+      })
+    }
+
+    function dragStart(event){
+        mx = event.x;
+        my = event.y;
+    }
+
+    function dragged(event){
+        mouseX = mouseX || 0;
+        mouseY = mouseY || 0;
+        beta   = (event.x - mx + mouseX) * Math.PI / 230 ;
+        alpha  = (event.y - my + mouseY) * Math.PI / 230  * (-1);
+        var data = [
+             grid3d.rotateY(beta + startAngle).rotateX(alpha - startAngle)(xGrid),
+             grid3d.rotateY(beta + startAngle).rotateX(alpha - startAngle)(yGrid),
+             grid3d.rotateY(beta + startAngle).rotateX(alpha - startAngle)(zGrid),
+            point3d.rotateY(beta + startAngle).rotateX(alpha - startAngle)(scatter),
+            yScale3d.rotateY(beta + startAngle).rotateX(alpha - startAngle)([yLine]),
+        ];
+        processData(data, 0);
+    }
+
+    function dragEnd(event){
+        mouseX = event.x - mx + mouseX;
+        mouseY = event.y - my + mouseY;
+    }
+
+    d3.selectAll('button').on('click', init);
+
+    init();
+
+
+
+    var sb = d3.select('.sidebar').call(
+      d3.drag()
+      .on("start", function(event, d) {
+          // Initialize dx and dy as starting locations before the drag
+          dx = parseInt(d3.select(this).style("left"), 10);
+          dy = parseInt(d3.select(this).style("top"), 10);
+          sx = dx; // Starting x value of the drag
+          var mouseX = event.x + window.scrollX;
+          var mouseY = 1800 + event.y - window.scrollY;
+          var boxVals = d3.select(this).node().getBoundingClientRect()
+          // IF clickx and clicky LEAVE MOUSE IN DRAG CORNER, DONT DRAG
+          console.log(mouseY, boxVals.height + boxVals.y - 50)
+          if(mouseY > boxVals.height + boxVals.y - 50){
+            if(mouseX > boxVals.width + boxVals.x - 30){
+              doNotDrag = true; // size change instead of drag
+            }else{
+              doNotDrag = false;
+            }
+          }else{
+              doNotDrag = false;
+            }
+        })
+        .on("drag", function(event, d) {
+          if(doNotDrag==false){
+            // Drag by the change in movement
+            dx = dx + event.dx;
+            dy = dy + event.dy;
+            d3.select(this).style("left", (dx) + "px")
+                           .style("top", (dy) + "px");
+            boxesContainer.style("left", (dx) + "px")
+                           .style("top", (dy) + "px");
+
+            // Move the element by the drag movement
+            d3.select(this).attr("transform", `translate(${event.x}, ${event.y})`);
+          }
+        }))
+
+      
+
+
+      // Load JSON file from same file path as a Promise
+      d3.json("./ClusterData.json").then(function(json) {
+        data = json;
+
+        // Initialize the box container and description container
+        var boundContainer = d3.select("#bound-container");
+        var boxesContainer = d3.select("#boxes-container");
+        var descriptionContainer = d3.select("#description-container");
+
+        // Extract the top-level keys and values from the json
+        var keys = Object.keys(data);
+        var values = Object.values(data);
+
+        function openAllDescriptionsInCluster(cluster) {
+          // Get all the document nodes in the cluster
+          var nodes = d3.selectAll(".draggable-box")
+            .filter(function(d) { return clusters[titles.indexOf(d)] == cluster; });
+
+          // Trigger a click event on each node to open its description box
+          nodes.each(function(d) {
+            d3.select(this).dispatch("click");
+          });
+        }
+
+
+        // Extract file titles from dictionary and turn into one list
+        var titles = Object.keys(values[0]);
+        var clusters = Array(Object.keys(values[0]).length).fill(0);
+        titles = titles.concat(Object.keys(values[1]));
+        clusters = clusters.concat(Array(Object.keys(values[1]).length).fill(1));
+        titles = titles.concat(Object.keys(values[2]));
+        clusters = clusters.concat(Array(Object.keys(values[2]).length).fill(2));
+        titles = titles.concat(Object.keys(values[3]));
+        clusters = clusters.concat(Array(Object.keys(values[3]).length).fill(3));
+        var doNotDrag = false;
+
+        // Create cluster bounding boxes
+        boundContainer.selectAll(".bound-box")
+          .data(clusters.filter((value, index, array) => array.indexOf(value) === index))
+          .enter()
+          .append("div")
+          .classed("bound-box", true)
+          .attr("id", function(d) {return "c" + d;})  // Set ID to cluster number so each doc can find its bounding box
+          .text(function(d) { return d; })
+          .style("font-size", "24px") 
+          .style("left", function(d, i) { return (i%2 * 800) + "px"; })
+          .style("top", function(d, i) { return 40 + (parseInt(i/2) * 415) + "px"; })
+          .style("width", "600px")
+          .style("height", "400px")
+          .style("background-color", "lightgray")
+          .call(
+            d3.drag()
+            .on("start", function(event, d) {
+              // Initialize dx and dy as starting locations before the drag
+              dx = parseInt(d3.select(this).style("left"), 10);
+              dy = parseInt(d3.select(this).style("top"), 10);
+              sx = dx; // Starting x value of the drag
+              var mouseX = event.x + window.scrollX;
+              var mouseY = 1800 + event.y - window.scrollY;
+              var boxVals = d3.select(this).node().getBoundingClientRect()
+              // IF clickx and clicky LEAVE MOUSE IN DRAG CORNER, DONT DRAG
+              console.log(mouseY, boxVals.height + boxVals.y - 50)
+              if(mouseY > boxVals.height + boxVals.y - 50){
+                if(mouseX > boxVals.width + boxVals.x - 30){
+                  doNotDrag = true; // size change instead of drag
+                }else{
+                  doNotDrag = false;
+                }
+              }else{
+                  doNotDrag = false;
+                }
+            })
+            .on("drag", function(event, d) {
+              if(doNotDrag==false){
+                // Drag by the change in movement
+                dx = dx + event.dx;
+                dy = dy + event.dy;
+                d3.select(this).style("left", (dx) + "px")
+                               .style("top", (dy) + "px");
+                boxesContainer.style("left", (dx) + "px")
+                               .style("top", (dy) + "px");
+
+                // Move the element by the drag movement
+                d3.select(this).attr("transform", `translate(${event.x}, ${event.y})`);
+              }
+            }))
+          .on("dblclick", function(event, d) {   
+            openAllDescriptionsInCluster(d);
+          });
+
+        
+        // Create a map to set each agency to a color
+        var colors = {"CIA":"lightgreen", "DIA":"steelblue", "FBI":"cyan", "NSA":"yellow", "USCBP":"pink"};
+
+        // Iterate through clusters and add respective data to each
+        for (let i = 0; i < 4; i++) {
+          // Grab the cluster data by index
+          c1 = clusters.indexOf(i);
+          if(i==3){
+            c2 = clusters.length;
+          } else{
+            c2 = clusters.indexOf(i+1);
+          }
+          clustData = titles.slice(c1, c2);
+
+          // Select the cluster and append draggable document boxes to each
+          d3.select("#c" + i).selectAll(".draggable-box")
+            .data(clustData)
+            .enter()
+            .append("div")
+            .classed("draggable-box", true)
+            .attr("id", function(d) {return "c" + d})
+            .text(function(d) { return d; })
+            .style("font-size", "10px") 
+            .style("left", function(d, i) {
+              // Get cluster 
+              var bound_id = clusters[titles.indexOf(d)]
+              // Get cluster right and left locations
+              var right = d3.selectAll("#c" + bound_id).node().getBoundingClientRect().right
+              var left = d3.selectAll("#c" + bound_id).node().getBoundingClientRect().left
+              var cIdx = i; // get index within cluster
+              // Place the doc in the bounds of the cluster using the within-cluster index
+              var dist = 100;
+              // Determine location absed on size of cluster
+              var maxAllowed = parseInt((right - left - 5)/dist);
+              return 20 + (cIdx%maxAllowed * dist) + "px";
+            })
+            .style("top", function(d, i) {
+              // Get cluster 
+              var bound_id = clusters[titles.indexOf(d)]
+              // Get cluster right, left, top and bottom locations
+              var right = d3.selectAll("#c" + bound_id).node().getBoundingClientRect().right
+              var left = d3.selectAll("#c" + bound_id).node().getBoundingClientRect().left
+              var top = d3.selectAll("#c" + bound_id).node().getBoundingClientRect().top
+              var bottom = d3.selectAll("#c" + bound_id).node().getBoundingClientRect().bottom
+              var cIdx = i;// get index within cluster
+              // Place the doc in the bounds of the cluster using the within-cluster index
+              var dist = 50;
+              var distH = 100;
+              // Determine location absed on size of cluster
+              var maxAllowedH = parseInt((right - left - 5)/distH);
+              var maxAllowed = parseInt((bottom - top - 55)/dist);
+              return 5 + (parseInt(cIdx/maxAllowedH) * dist) + "px";
+            })
+            .style("background-color", function (d) {return colors[d.split("_")[0]];})
+            .call(
+              d3.drag()
+              .on("start", function(event, d) {
+                // Initialize dx and dy as starting locations before the drag
+                dx = parseInt(d3.select(this).style("left"), 10);
+                dy = parseInt(d3.select(this).style("top"), 10);
+                sx = dx; // Starting x value of the drag
+
+              })
+              .on("drag", function(event, d) {
+
+                // Find the limits of movement
+              // Get cluster 
+                var bound_id = clusters[titles.indexOf(d)]
+              // Get cluster right, left, top, bottom, x, and y locations
+                var right = d3.selectAll("#c" + bound_id).node().getBoundingClientRect().right
+                var left = d3.selectAll("#c" + bound_id).node().getBoundingClientRect().left
+                var top = d3.selectAll("#c" + bound_id).node().getBoundingClientRect().top
+                var bottom = d3.selectAll("#c" + bound_id).node().getBoundingClientRect().bottom
+                var boundX = d3.selectAll("#c" + bound_id).node().getBoundingClientRect().x
+                var boundY = d3.selectAll("#c" + bound_id).node().getBoundingClientRect().y
+
+                // Drag by the change in movement
+                dx = dx + event.dx;
+                dy = dy + event.dy;
+
+                // Limit movement based on cluster size
+                if(dx < right - boundX - 80){
+                  if(dx > left - boundX - 2){
+                    if(dy < bottom - boundY - 40){
+                      if(dy > top - boundY - 2){
+                        d3.select(this).style("left", (dx) + "px")
+                               .style("top", (dy) + "px");
+                      }
+                    }
+                  }
+                }
+                
+              })
+            )
+            .on("click", function(event, d) { // Click event
+              // Initialize location of item clicked
+              clickx = parseInt(d3.select(this).style("left"), 10);
+              clicky = parseInt(d3.select(this).style("top"), 10);
+
+              // Get the description from the data and define the color to be set
+              var dataGrab = data[clusters[titles.indexOf(d)]][d];// 0, CIA_01
+              var currColor = colors[d.split("_")[0]];
+              var bound_id = clusters[titles.indexOf(d)];
+
+              // Define the description box of what was clicked
+              var descriptionBox = d3.selectAll("#" + d.replace(/\s/g, ''));
+              var descriptionBoundContainer = d3.select("#c" + d + ".draggable-box");
+
+              // If not initialized yet, make it appear with the correct location, text, and color
+              if (descriptionBox.empty()) {
+                descriptionBox = descriptionBoundContainer.append("div")//descriptionContainer.append("div")
+                  .classed("description-box", true)
+                  .attr("id", d.replace(/\s/g, ''), true)
+                  .style("display", "block")
+                  .text(dataGrab)
+                  .style("font-size", "10px") 
+                  .style("left", function(d, i) {
+                    return "50px"
+                  })
+                  .style("top", function(d, i) {
+                    return "130px"
+                  })
+                  .style("background-color", currColor);
+              } else { // If initialized and not shown, show the box and text
+                if (descriptionBox.style("display") === "none") {
+                  descriptionBox.style("display", "block")
+                    .text(dataGrab)
+                    .style("left", function(d, i) {
+                      return "52px"
+                    })
+                    .style("top", function(d, i) {
+                      return "130px"
+                    })
+                } else { // If initialized and shown, hide the box
+                  descriptionBox.style("display", "none");
+                }
+              }
+
+              // Create a drag event for the description box
+              descriptionBox.call(
+                  d3.drag()
+                  .on("start", function(event, d) {
+                    // Initialize dx and dy as starting locations before the drag
+                    dx = parseInt(d3.select(this).style("left"), 10);
+                    dy = parseInt(d3.select(this).style("top"), 10);
+                  })
+                  .on("drag", function(event, d) {
+                    // Get cluster right, left, top, bottom, x, and y locations
+                    var top = d3.selectAll("#c" + bound_id).node().getBoundingClientRect().top
+                    var bottom = d3.selectAll("#c" + bound_id).node().getBoundingClientRect().bottom
+                    var right = d3.selectAll("#c" + bound_id).node().getBoundingClientRect().right
+                    var left = d3.selectAll("#c" + bound_id).node().getBoundingClientRect().left
+                    var boundX = d3.selectAll("#c" + bound_id).node().getBoundingClientRect().x
+                    var boundY = d3.selectAll("#c" + bound_id).node().getBoundingClientRect().y
+
+                    // Get relative locations to place the description boxes
+                    var label = d3.selectAll("#c" + d).node().getBoundingClientRect();
+                    var outer = d3.selectAll("#c" + bound_id).node().getBoundingClientRect();
+                    var relX = label.x - outer.x;
+                    var relY = label.y - outer.y;
+
+                    // Drag by the change in movement
+                    dx = dx + event.dx;
+                    dy = dy + event.dy;
+
+                    // Do not allow dragging outside the cluster
+                    if(dx < right - boundX - 80 - relX){
+                      if(dx > left - boundX - 40 - relX){
+                        if(dy < bottom - boundY - 40 - relY){
+                          if(dy > top - boundY - 20 - relY){
+                            d3.select(this).style("left", (dx) + "px")
+                                   .style("top", (dy) + "px");
+                          }
+                        }
+                      }
+                    }
+            }))});
+        }
+      }).catch(function(error) {
+        console.log(error); // Catch and log any errors
+      });
+
+    </script>
+    <use xlink:href="#grid" />
+  </body>
+</html>
+
