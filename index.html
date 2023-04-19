@@ -45,7 +45,7 @@
       }
       .sidebar {
         height: 70%;
-        width: 40%;/*600px;*/
+        width: 40%;
         position: absolute;
         z-index: 1;
         top: 0;
@@ -54,18 +54,6 @@
         overflow-x: hidden;
         padding-top: 16px;
       }
-
-      /*.sidebar a {
-        padding: 6px 8px 6px 16px;
-        text-decoration: none;
-        font-size: 20px;
-        color: #818181;
-        display: block;
-      }*/
-
-      /*.sidebar a:hover {
-        color: #f1f1f1;
-      }*/
     </style>
     Double click the cluster background to open all documents in a cluster at once.
   </head>
@@ -85,6 +73,12 @@
 
   <script type="text/javascript"></script>
     <script>
+
+
+      // Load JSON file from same file path as a Promise
+      d3.json("./ClusterData.json").then(function(json) {
+
+        data = json;
 
 
       var origin = [300, 270], j = 10, scale = 20, scatter = [], yLine = [], xGrid = [], yGrid = [], zGrid = [], beta = 0, alpha = 0, key = function(d){ return d.id; }, startAngle = Math.PI/4;
@@ -132,6 +126,8 @@
         .rotateY( startAngle)
         .rotateX(-startAngle)
         .scale(scale);
+
+
 
     function processData(data, tt){
 
@@ -204,23 +200,21 @@
             .attr('opacity', 1)
             .attr('cx', posPointX)
             .attr('cy', posPointY);
-            // .on("click", function(event, d) { // Click event
-            //   // Initialize location of item clicked
-            //   clickx = parseInt(d3.select(this).style("left"), 10);
-            //   clicky = parseInt(d3.select(this).style("top"), 10);
-
-            //   // Get the description from the data and define the color to be set
-            //   var dataGrab = data[clusters[titles.indexOf(d)]][d];// 0, CIA_01
-            //   var currColor = colors[d.split("_")[0]];
-            //   var bound_id = clusters[titles.indexOf(d)];
-
-            //   // Define the description box of what was clicked
-            //   var descriptionBox = d3.selectAll("#" + d.replace(/\s/g, ''));
-            //   var descriptionBoundContainer = d3.select("#c" + d + ".draggable-box");;
-            // });
 
 
         points.exit().remove();
+
+        points.on("click", function(event, d) { // Click event
+          // Call decsription box open function
+          openDescBox(d.id, clusters, json, titles, colors)
+        });
+
+        points.on("mouseover", function(event, d){ // Hover event
+        	highlightDoc(d.id, clusters, json, titles, colors)
+        }).on("mouseout", function(event, d){ // Hover event end
+        	unHighlightDoc(d.id, clusters, json, titles, colors)
+        })
+
 
         /* ----------- y-Scale ----------- */
 
@@ -273,22 +267,22 @@
         c = csv;
 
         xGrid = [];
-        for(var z = -j; z < j; z++){
-            for(var x = -j; x < j; x++){
-                xGrid.push([x, -10, z]);
+        for(var z = -j; z <= j; z++){
+            for(var x = -j+1; x <= j; x++){
+                xGrid.push([x, 10, z]);
             }
         }
 
         yGrid = [];
-        for(var z = -j; z < j; z++){
-            for(var x = -j; x < j; x++){
-              yGrid.push([-10, x, z]);
+        for(var z = -j; z <= j; z++){
+            for(var x = -j+1; x <= j; x++){
+              yGrid.push([10, x, z]);
             }
         }
 
         zGrid = [];
-        for(var z = -j; z < j; z++){
-            for(var x = -j; x < j; x++){
+        for(var z = -j+1; z <= j; z++){
+            for(var x = -j+1; x <= j; x++){
               zGrid.push([x, z, -10]);
             }
         }
@@ -365,7 +359,6 @@
           var mouseY = 1800 + event.y - window.scrollY;
           var boxVals = d3.select(this).node().getBoundingClientRect()
           // IF clickx and clicky LEAVE MOUSE IN DRAG CORNER, DONT DRAG
-          console.log(mouseY, boxVals.height + boxVals.y - 50)
           if(mouseY > boxVals.height + boxVals.y - 50){
             if(mouseX > boxVals.width + boxVals.x - 30){
               doNotDrag = true; // size change instead of drag
@@ -383,20 +376,109 @@
             dy = dy + event.dy;
             d3.select(this).style("left", (dx) + "px")
                            .style("top", (dy) + "px");
-            boxesContainer.style("left", (dx) + "px")
-                           .style("top", (dy) + "px");
 
             // Move the element by the drag movement
             d3.select(this).attr("transform", `translate(${event.x}, ${event.y})`);
           }
         }))
 
-      
 
 
-      // Load JSON file from same file path as a Promise
-      d3.json("./ClusterData.json").then(function(json) {
-        data = json;
+    function highlightDoc(d, clusters, data, titles, colors){
+      var descriptionBoundContainer = d3.select("#c" + d + ".draggable-box");
+      descriptionBoundContainer.style("border", "1px solid white");
+    }
+
+    function unHighlightDoc(d, clusters, data, titles, colors){
+      var descriptionBoundContainer = d3.select("#c" + d + ".draggable-box");
+      descriptionBoundContainer.style("border", "1px solid black");
+    }
+
+
+
+    // Open description box function
+    function openDescBox(d, clusters, data, titles, colors){
+      // Get the description from the data and define the color to be set
+      var dataGrab = data[clusters[titles.indexOf(d)]][d];// 0, CIA_01
+      var currColor = colors[d.split("_")[0]];
+      var bound_id = clusters[titles.indexOf(d)];
+
+      // Define the description box of what was clicked
+      var descriptionBox = d3.selectAll("#" + d.replace(/\s/g, ''));
+      var descriptionBoundContainer = d3.select("#c" + d + ".draggable-box");;
+
+
+      // If not initialized yet, make it appear with the correct location, text, and color
+      if (descriptionBox.empty()) {
+        descriptionBox = descriptionBoundContainer.append("div")//descriptionContainer.append("div")
+          .classed("description-box", true)
+          .attr("id", d.replace(/\s/g, ''), true)
+          .style("display", "block")
+          .text(dataGrab)
+          .style("font-size", "10px") 
+          .style("left", function(d, i) {
+            return "50px"
+          })
+          .style("top", function(d, i) {
+            return "130px"
+          })
+          .style("background-color", currColor);
+      } else { // If initialized and not shown, show the box and text
+        if (descriptionBox.style("display") === "none") {
+          descriptionBox.style("display", "block")
+            .text(dataGrab)
+            .style("left", function(d, i) {
+              return "52px"
+            })
+            .style("top", function(d, i) {
+              return "130px"
+            })
+        } else { // If initialized and shown, hide the box
+          descriptionBox.style("display", "none");
+        }
+      }
+
+      // Create a drag event for the description box
+      descriptionBox.call(
+          d3.drag()
+          .on("start", function(event, d) {
+            // Initialize dx and dy as starting locations before the drag
+            dx = parseInt(d3.select(this).style("left"), 10);
+            dy = parseInt(d3.select(this).style("top"), 10);
+          })
+          .on("drag", function(event, d) {
+            // Get cluster right, left, top, bottom, x, and y locations
+            var top = d3.selectAll("#c" + bound_id).node().getBoundingClientRect().top
+            var bottom = d3.selectAll("#c" + bound_id).node().getBoundingClientRect().bottom
+            var right = d3.selectAll("#c" + bound_id).node().getBoundingClientRect().right
+            var left = d3.selectAll("#c" + bound_id).node().getBoundingClientRect().left
+            var boundX = d3.selectAll("#c" + bound_id).node().getBoundingClientRect().x
+            var boundY = d3.selectAll("#c" + bound_id).node().getBoundingClientRect().y
+
+            // Get relative locations to place the description boxes
+            var label = d3.selectAll("#c" + d).node().getBoundingClientRect();
+            var outer = d3.selectAll("#c" + bound_id).node().getBoundingClientRect();
+            var relX = label.x - outer.x;
+            var relY = label.y - outer.y;
+
+            // Drag by the change in movement
+            dx = dx + event.dx;
+            dy = dy + event.dy;
+
+            // Do not allow dragging outside the cluster
+            if(dx < right - boundX - 80 - relX){
+              if(dx > left - boundX - 40 - relX){
+                if(dy < bottom - boundY - 40 - relY){
+                  if(dy > top - boundY - 20 - relY){
+                    d3.select(this).style("left", (dx) + "px")
+                           .style("top", (dy) + "px");
+                  }
+                }
+              }
+            }
+		}))
+
+    }
 
         // Initialize the box container and description container
         var boundContainer = d3.select("#bound-container");
@@ -455,7 +537,6 @@
               var mouseY = 1800 + event.y - window.scrollY;
               var boxVals = d3.select(this).node().getBoundingClientRect()
               // IF clickx and clicky LEAVE MOUSE IN DRAG CORNER, DONT DRAG
-              console.log(mouseY, boxVals.height + boxVals.y - 50)
               if(mouseY > boxVals.height + boxVals.y - 50){
                 if(mouseX > boxVals.width + boxVals.x - 30){
                   doNotDrag = true; // size change instead of drag
@@ -579,89 +660,9 @@
                 
               })
             )
-            .on("click", function(event, d) { // Click event
-              // Initialize location of item clicked
-              clickx = parseInt(d3.select(this).style("left"), 10);
-              clicky = parseInt(d3.select(this).style("top"), 10);
-
-              // Get the description from the data and define the color to be set
-              var dataGrab = data[clusters[titles.indexOf(d)]][d];// 0, CIA_01
-              var currColor = colors[d.split("_")[0]];
-              var bound_id = clusters[titles.indexOf(d)];
-
-              // Define the description box of what was clicked
-              var descriptionBox = d3.selectAll("#" + d.replace(/\s/g, ''));
-              var descriptionBoundContainer = d3.select("#c" + d + ".draggable-box");
-
-              // If not initialized yet, make it appear with the correct location, text, and color
-              if (descriptionBox.empty()) {
-                descriptionBox = descriptionBoundContainer.append("div")//descriptionContainer.append("div")
-                  .classed("description-box", true)
-                  .attr("id", d.replace(/\s/g, ''), true)
-                  .style("display", "block")
-                  .text(dataGrab)
-                  .style("font-size", "10px") 
-                  .style("left", function(d, i) {
-                    return "50px"
-                  })
-                  .style("top", function(d, i) {
-                    return "130px"
-                  })
-                  .style("background-color", currColor);
-              } else { // If initialized and not shown, show the box and text
-                if (descriptionBox.style("display") === "none") {
-                  descriptionBox.style("display", "block")
-                    .text(dataGrab)
-                    .style("left", function(d, i) {
-                      return "52px"
-                    })
-                    .style("top", function(d, i) {
-                      return "130px"
-                    })
-                } else { // If initialized and shown, hide the box
-                  descriptionBox.style("display", "none");
-                }
-              }
-
-              // Create a drag event for the description box
-              descriptionBox.call(
-                  d3.drag()
-                  .on("start", function(event, d) {
-                    // Initialize dx and dy as starting locations before the drag
-                    dx = parseInt(d3.select(this).style("left"), 10);
-                    dy = parseInt(d3.select(this).style("top"), 10);
-                  })
-                  .on("drag", function(event, d) {
-                    // Get cluster right, left, top, bottom, x, and y locations
-                    var top = d3.selectAll("#c" + bound_id).node().getBoundingClientRect().top
-                    var bottom = d3.selectAll("#c" + bound_id).node().getBoundingClientRect().bottom
-                    var right = d3.selectAll("#c" + bound_id).node().getBoundingClientRect().right
-                    var left = d3.selectAll("#c" + bound_id).node().getBoundingClientRect().left
-                    var boundX = d3.selectAll("#c" + bound_id).node().getBoundingClientRect().x
-                    var boundY = d3.selectAll("#c" + bound_id).node().getBoundingClientRect().y
-
-                    // Get relative locations to place the description boxes
-                    var label = d3.selectAll("#c" + d).node().getBoundingClientRect();
-                    var outer = d3.selectAll("#c" + bound_id).node().getBoundingClientRect();
-                    var relX = label.x - outer.x;
-                    var relY = label.y - outer.y;
-
-                    // Drag by the change in movement
-                    dx = dx + event.dx;
-                    dy = dy + event.dy;
-
-                    // Do not allow dragging outside the cluster
-                    if(dx < right - boundX - 80 - relX){
-                      if(dx > left - boundX - 40 - relX){
-                        if(dy < bottom - boundY - 40 - relY){
-                          if(dy > top - boundY - 20 - relY){
-                            d3.select(this).style("left", (dx) + "px")
-                                   .style("top", (dy) + "px");
-                          }
-                        }
-                      }
-                    }
-            }))});
+            .on("click", function(event, d) { // Click event 
+            	openDescBox(d, clusters, data, titles, colors);
+          });
         }
       }).catch(function(error) {
         console.log(error); // Catch and log any errors
